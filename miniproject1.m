@@ -23,16 +23,13 @@ G = (subs(Gsym,{c1,c2,c3,l1,l2,l3,r1,r2},{.01,.005,0.001,.001,.05,.01,100,100}))
 num = sym2poly(num);
 den = sym2poly(den);
 sys = tf(num,den)
-sys_cl = feedback(sys,1);
 [A,B,C,D] = tf2ss(num,den);
 [Z,P,gain]  = ss2zp(A,B,C,D);
-[num_cl, den_cl] = tfdata(sys_cl,'v');
-[A2,B2,C2,D2] = tf2ss(num_cl,den_cl);
-[Z2,P2,gain2]  = ss2zp(A2,B2,C2,D2);
+
 
 %%
 %laplace domain controller
-K = zpk([-1.33+566j, -1.33-566j],[-1, -4000],1);
+K = zpk([-1.33+566j, -1.33-566j],[-1, -4000],1000);
 
 
 %Frequency domain controller
@@ -41,66 +38,50 @@ K_lag = tf([1/1000, 1], [1 1]);
 [num_controller, den_controller] =  tfdata(K,'v');
 
 %%
-
-%plot ol and cl system
-figure
+%plot ol system
+figure("Name","open loop step response")
 step(sys)
-figure
-step(sys_cl);
-figure
-nyquist(sys_cl)
-figure
+figure("Name","open loop bode plot")
 margin(sys)
+figure("Name","open loop root locus")
+rlocus(sys)
 info = stepinfo(sys)
 
 %%
 %plot laplace domain controller
-sys2 = 1000*K*sys;
+sys2 = K*sys;
 sys2_cl = feedback(sys2,1);
-figure
+figure("Name","controller step response")
 step(sys2_cl)
-figure
-nyquist(sys2_cl)
-info2 = stepinfo(sys2_cl)
-figure
+figure("Name","controller bode plot")
 margin(sys2)
-%%
-%plot frequency domain controller
-sys3 = 50*K_lag*K*sys;
-sys3_cl = feedback(sys3,1);
-figure
-step(sys3_cl)
-info3 = stepinfo(sys3_cl)
-figure
-margin(sys3)
+info2 = stepinfo(sys2_cl)
 
 %%
-% Closed loop system
-dist = 0;
-noise = 0;
-sinwave = 0;
-ref = 1;
-runtime = 0.05;
-k = 1000;
+syms r y K_sym Gd d G_sym n e u
+eqn_ry = [r-y==e, K_sym*e - Gd*d == u,G_sym*u - n == y];
+S = solve(eqn_ry,[e,u,y])
 
-sim("Feedback_Control.slx")
-figure, hold on
-plot(t,yout)
-plot(t,reference)
-title("Closed Loop Step Response")
-xlabel("Time (s)")
-ylabel("Amplitude")
-legend("yout","reference")
-hold off
 
-%plot error
+sys_cl = sys*K/(1+sys*K);
+[num_cl, den_cl] = tfdata(sys_cl,'v');
+[A_cl,B_cl,C_cl,D_cl] = tf2ss(num_cl,den_cl);
+[Z_cl,P_cl,gain_cl]  = ss2zp(A2,B2,C2,D2);
 
-e = abs((yout-reference)/reference*100);
-figure
-plot(t,e)
-title("Error in closed loop system")
-xlabel("Time (s)")
-ylabel("Percent Error")
+figure("Name","closed loop step response")
+step(sys_cl)
+
+figure("Name","nyquist plot")
+nyquist(sys_cl)
+
+G_d = sys;
+G_dy = sys*(G_d+K)/(1+K*sys);
+figure("Name","bode plot of G_dy ")
+bode(G_dy)
+
+G_ne = 2/(K*sys);
+figure("Name","bode plot of G_ne ")
+bode(G_ne)
 %%
 % constant Disturbance 
 close all
@@ -213,23 +194,6 @@ title("Error with sin reference")
 xlabel("Time (s)")
 ylabel("Percent Error")
 
-%%
-syms r y K_sym Gd d G_sym n e s1 s2
-
-eqn_dy = [r-y==s1, K_sym*s1 - Gd*d == s2, y == G_sym*s2];
-eqn_ne = [r-y,K_sym*G_sym*e - n];
-S = solve(eqn_dy,[s1,s2,y])
-S2 = solve(eqn_ne,[e,y])
-
-%%
-G_d = sys;
-G_dy = sys*(G_d+K)/(1+K*sys);
-figure 
-bode(G_dy)
-
-G_ne = 1/(K*sys);
-figure
-bode(G_ne)
 
 
 
